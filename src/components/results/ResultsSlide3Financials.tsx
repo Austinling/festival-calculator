@@ -17,15 +17,19 @@ export function ResultsSlide3Financials({
       </p>
 
       {/* Net Profit Card */}
-      <div className={`rounded-lg p-8 text-center ${
-        isProfitable ? "bg-green-900" : "bg-red-900"
-      }`}>
+      <div
+        className={`rounded-lg p-8 text-center ${
+          isProfitable ? "bg-green-900" : "bg-red-900"
+        }`}
+      >
         <p className="text-sm uppercase tracking-wider text-slate-300">
           Net Profit/Loss
         </p>
-        <p className={`mt-2 text-5xl font-bold ${
-          isProfitable ? "text-green-400" : "text-red-400"
-        }`}>
+        <p
+          className={`mt-2 text-5xl font-bold ${
+            isProfitable ? "text-green-400" : "text-red-400"
+          }`}
+        >
           ${(result.metrics.netProfit / 1000).toFixed(1)}k
         </p>
       </div>
@@ -44,6 +48,12 @@ export function ResultsSlide3Financials({
             <span className="text-slate-300">Vendor Commissions</span>
             <span className="font-semibold text-green-400">
               ${(result.metrics.vendorCommission / 1000).toFixed(1)}k
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-slate-300">Sponsorship Profit</span>
+            <span className="font-semibold text-green-400">
+              ${(result.metrics.sponsorshipRevenue / 1000).toFixed(1)}k
             </span>
           </div>
           <div className="border-t border-slate-600 pt-3">
@@ -73,11 +83,24 @@ export function ResultsSlide3Financials({
               ${(result.metrics.totalOPEX / 1000).toFixed(1)}k
             </span>
           </div>
+          <div className="flex items-center justify-between">
+            <span className="text-slate-300">
+              Electricity (included in OPEX)
+            </span>
+            <span className="font-semibold text-red-300">
+              ${(result.metrics.electricityCost / 1000).toFixed(1)}k
+            </span>
+          </div>
           <div className="border-t border-slate-600 pt-3">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-white">Total Costs</span>
               <span className="font-bold text-red-300">
-                ${((result.metrics.totalCAPEX + result.metrics.totalOPEX) / 1000).toFixed(1)}k
+                $
+                {(
+                  (result.metrics.totalCAPEX + result.metrics.totalOPEX) /
+                  1000
+                ).toFixed(1)}
+                k
               </span>
             </div>
           </div>

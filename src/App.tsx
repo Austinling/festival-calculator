@@ -10,6 +10,70 @@ import type {
   SimulationModifiers,
 } from "./types/festival";
 
+function normalizeFestivalConfig(config: any): FestivalConfig {
+  const normalizedArtists = Array.isArray(config?.artists)
+    ? config.artists.map((artist: any) => ({
+        ...artist,
+        duration: 45,
+        setCost:
+          typeof artist.setCost === "number"
+            ? artist.setCost
+            : 1500 + Math.round((artist.drawFactor ?? 1) * 800),
+      }))
+    : [];
+
+  const normalizedAmenities = Array.isArray(config?.amenities)
+    ? config.amenities.filter(
+        (amenity: any) => amenity.type === "parking" || amenity.type === "wifi",
+      )
+    : [];
+
+  const normalizedToilets = Array.isArray(config?.toilets)
+    ? config.toilets.map((toilet: any) => ({
+        ...toilet,
+        type: toilet.type === "accessible" ? "disabled" : toilet.type,
+        maintenanceCostPerWeek:
+          typeof toilet.maintenanceCostPerWeek === "number"
+            ? toilet.maintenanceCostPerWeek
+            : Math.round((toilet.maintenanceCostPerDay ?? 0) * 7),
+      }))
+    : [];
+
+  const normalizedSecurity = Array.isArray(config?.security)
+    ? config.security.map((staff: any) => {
+        const mappedRole =
+          staff.role === "perimeter"
+            ? "general-officer"
+            : staff.role === "crowd-control"
+              ? "door-supervisor"
+              : "traffic-management";
+
+        return {
+          ...staff,
+          role: mappedRole,
+          costPerHour:
+            typeof staff.costPerHour === "number"
+              ? staff.costPerHour
+              : Math.round((staff.costPerDay ?? 0) / 10),
+          hoursPerDay:
+            typeof staff.hoursPerDay === "number" ? staff.hoursPerDay : 10,
+        };
+      })
+    : [];
+
+  return {
+    ...config,
+    artists: normalizedArtists,
+    sponsors: Array.isArray(config?.sponsors) ? config.sponsors : [],
+    medicalStaff: Array.isArray(config?.medicalStaff)
+      ? config.medicalStaff
+      : [],
+    amenities: normalizedAmenities,
+    toilets: normalizedToilets,
+    security: normalizedSecurity,
+  };
+}
+
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [editingName, setEditingName] = useState("");
@@ -22,6 +86,13 @@ function App() {
   );
   const [simulationResult, setSimulationResult] =
     useState<SimulationResult | null>(null);
+  const [simulationModifiers, setSimulationModifiers] =
+    useState<SimulationModifiers>({
+      weather: "sunny",
+      marketingBudget: 50,
+      eventReputation: 50,
+      ticketPrice: 50,
+    });
   const [view, setView] = useState<"profile" | "configurator" | "results">(
     "profile",
   );
@@ -42,7 +113,7 @@ function App() {
   const loadConfig = () => {
     const saved = localStorage.getItem("festival-config");
     if (saved) {
-      setCurrentConfig(JSON.parse(saved));
+      setCurrentConfig(normalizeFestivalConfig(JSON.parse(saved)));
     } else {
       // Create default config
       const defaultConfig: FestivalConfig = {
@@ -58,8 +129,10 @@ function App() {
         stages: [],
         artists: [],
         vendors: [],
+        sponsors: [],
         toilets: [],
         security: [],
+        medicalStaff: [],
         amenities: [],
       };
       setCurrentConfig(defaultConfig);
@@ -74,18 +147,12 @@ function App() {
   const handleSimulate = () => {
     if (!currentConfig) return;
 
-    const modifiers: SimulationModifiers = {
-      weather: "sunny",
-      marketingBudget: 50,
-      eventReputation: 50,
-    };
-
-    const metrics = simulateFestival(currentConfig, modifiers);
+    const metrics = simulateFestival(currentConfig, simulationModifiers);
     const result: SimulationResult = {
       id: `result-${Date.now()}`,
       festivalId: currentConfig.festival.id,
       config: currentConfig,
-      modifiers,
+      modifiers: simulationModifiers,
       metrics,
       timestamp: new Date().toISOString(),
     };
@@ -258,6 +325,8 @@ function App() {
         <Configurator
           config={currentConfig}
           onConfigChange={saveConfig}
+          modifiers={simulationModifiers}
+          onModifiersChange={setSimulationModifiers}
           onSimulate={handleSimulate}
         />
       )}

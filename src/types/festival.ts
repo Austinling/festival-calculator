@@ -14,9 +14,10 @@ export interface Stage {
   id: string;
   name: string;
   capacity: number;
-  type: "main" | "secondary" | "workshop" | "vip";
+  type: "main" | "secondary" | "small";
   powerConsumption: number; // kW
   setupCost: number;
+  tierId?: "small" | "medium" | "large"; // Optional tier reference
 }
 
 // Lineup
@@ -25,8 +26,9 @@ export interface Artist {
   name: string;
   stageId: string;
   genre: string;
-  duration: number; // in minutes
-  startTime: string; // HH:mm
+  duration: number; // in minutes (fixed at 45 per set)
+  startTime: string; // auto-assigned HH:mm
+  setCost: number; // cost per 45-min set
   ticketRevenue: number; // additional per ticket if headliner
   drawFactor: number; // 0.5 - 2.0 multiplier on attendance
 }
@@ -35,31 +37,49 @@ export interface Artist {
 export interface Vendor {
   id: string;
   name: string;
-  category: "food" | "merchandise" | "sponsor";
+  category: "food" | "merchandise";
   capacity: number; // people/day
   commissionRate: number; // 0-1
   estimatedDailyRevenue: number;
+}
+
+export interface SponsorDeal {
+  id: string;
+  name: string;
+  tier: "community" | "regional" | "headline";
+  profit: number; // direct profit contribution for the full event
 }
 
 // Infrastructure
 export interface Toilet {
   id: string;
   quantity: number;
-  type: "standard" | "accessible" | "luxury";
-  maintenanceCostPerDay: number;
+  type: "standard" | "disabled";
+  maintenanceCostPerWeek: number;
 }
 
 export interface SecurityStaff {
   id: string;
   quantity: number;
-  role: "perimeter" | "crowd-control" | "medical";
-  costPerDay: number;
+  role: "general-officer" | "door-supervisor" | "traffic-management";
+  costPerHour: number;
+  hoursPerDay: number;
+}
+
+export interface MedicalStaffResource {
+  id: string;
+  quantity: number;
+  role: "paramedic" | "nurse" | "first-responder" | "ambulance-4x4" | "gazebo";
+  costPerHour: number;
+  hoursPerDay: number;
+  mileagePerDay?: number;
+  mileageRatePerMile?: number;
 }
 
 export interface Amenity {
   id: string;
   name: string;
-  type: "parking" | "camping" | "medical" | "lost-found" | "wifi" | "charging";
+  type: "parking" | "wifi";
   setupCost: number;
   maintenanceCostPerDay: number;
 }
@@ -70,8 +90,10 @@ export interface FestivalConfig {
   stages: Stage[];
   artists: Artist[];
   vendors: Vendor[];
+  sponsors: SponsorDeal[];
   toilets: Toilet[];
   security: SecurityStaff[];
+  medicalStaff: MedicalStaffResource[];
   amenities: Amenity[];
 }
 
@@ -82,6 +104,7 @@ export interface SimulationModifiers {
   weather: WeatherCondition;
   marketingBudget: number; // percentage 0-100
   eventReputation: number; // 0-100
+  ticketPrice: number;
 }
 
 // Simulation Results - Detailed breakdown
@@ -101,6 +124,8 @@ export interface SimulationMetrics {
   totalRevenue: number;
   ticketRevenue: number;
   vendorCommission: number;
+  sponsorshipRevenue: number;
+  electricityCost: number;
   totalOPEX: number;
   totalCAPEX: number;
   netProfit: number;

@@ -14,8 +14,7 @@ const ARTIST_PRESETS = [
     data: {
       name: "Justin Bieber",
       genre: "pop",
-      duration: 90,
-      startTime: "21:00",
+      setCost: 12000,
       ticketRevenue: 60,
       drawFactor: 1.9,
     },
@@ -26,8 +25,7 @@ const ARTIST_PRESETS = [
     data: {
       name: "DJ Snake",
       genre: "edm",
-      duration: 75,
-      startTime: "22:30",
+      setCost: 9000,
       ticketRevenue: 40,
       drawFactor: 1.6,
     },
@@ -38,13 +36,22 @@ const ARTIST_PRESETS = [
     data: {
       name: "The Midnight Signals",
       genre: "indie",
-      duration: 60,
-      startTime: "18:00",
+      setCost: 3500,
       ticketRevenue: 20,
       drawFactor: 1.2,
     },
   },
 ];
+
+function getAutoStartTime(slotIndex: number): string {
+  const baseMinutes = 12 * 60; // 12:00
+  const totalMinutes = baseMinutes + slotIndex * 45;
+  const hours = Math.floor((totalMinutes / 60) % 24);
+  const minutes = totalMinutes % 60;
+  return `${hours.toString().padStart(2, "0")}:${minutes
+    .toString()
+    .padStart(2, "0")}`;
+}
 
 export function ArtistsList({ config, onConfigChange }: ArtistsListProps) {
   const [showForm, setShowForm] = useState(false);
@@ -53,8 +60,7 @@ export function ArtistsList({ config, onConfigChange }: ArtistsListProps) {
     name: "",
     stageId: config.stages[0]?.id || "",
     genre: "rock",
-    duration: 60,
-    startTime: "14:00",
+    setCost: 2500,
     ticketRevenue: 0,
     drawFactor: 1.0,
   });
@@ -67,8 +73,9 @@ export function ArtistsList({ config, onConfigChange }: ArtistsListProps) {
       name: formData.name,
       stageId: formData.stageId,
       genre: formData.genre,
-      duration: formData.duration,
-      startTime: formData.startTime,
+      duration: 45,
+      startTime: getAutoStartTime(config.artists.length),
+      setCost: formData.setCost,
       ticketRevenue: formData.ticketRevenue,
       drawFactor: formData.drawFactor,
     };
@@ -82,8 +89,7 @@ export function ArtistsList({ config, onConfigChange }: ArtistsListProps) {
       name: "",
       stageId: config.stages[0]?.id || "",
       genre: "rock",
-      duration: 60,
-      startTime: "14:00",
+      setCost: 2500,
       ticketRevenue: 0,
       drawFactor: 1.0,
     });
@@ -197,35 +203,30 @@ export function ArtistsList({ config, onConfigChange }: ArtistsListProps) {
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Start Time *
+              Set Duration
             </label>
             <p className="text-xs text-slate-600 mb-2">
-              When does their set start? (24-hour format)
+              Set duration is fixed at 45 minutes.
             </p>
-            <input
-              type="time"
-              value={formData.startTime}
-              onChange={(e) =>
-                setFormData({ ...formData, startTime: e.target.value })
-              }
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
+            <div className="w-full rounded-md border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-700">
+              45 minutes (fixed)
+            </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Duration
+              Cost Per Set
             </label>
             <p className="text-xs text-slate-600 mb-2">
-              How long they perform (minutes)
+              Cost for one 45-minute set (£)
             </p>
             <input
               type="number"
-              placeholder="60"
-              value={formData.duration}
+              placeholder="2500"
+              value={formData.setCost}
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  duration: parseInt(e.target.value),
+                  setCost: parseInt(e.target.value, 10) || 0,
                 })
               }
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -302,8 +303,8 @@ export function ArtistsList({ config, onConfigChange }: ArtistsListProps) {
             <div>
               <p className="font-medium text-slate-900">{artist.name}</p>
               <p className="text-xs text-slate-600">
-                {stage?.name} • {artist.startTime} • {artist.duration} min •
-                Draw: {artist.drawFactor}x
+                {stage?.name} • {artist.startTime} • 45 min • Draw:{" "}
+                {artist.drawFactor}x • £{artist.setCost.toLocaleString()} / set
               </p>
             </div>
             <button

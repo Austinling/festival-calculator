@@ -31,14 +31,14 @@ const VENDOR_PRESETS = [
     },
   },
   {
-    key: "brand-sponsor",
-    label: "Brand Sponsor Booth",
+    key: "merch-pop-up",
+    label: "Pop-up Merchandise Kiosk",
     data: {
-      name: "Red Blast Sponsor Lounge",
-      category: "sponsor" as const,
-      capacity: 1200,
-      commissionRate: 0.35,
-      estimatedDailyRevenue: 40000,
+      name: "Limited Merch Pop-up",
+      category: "merchandise" as const,
+      capacity: 600,
+      commissionRate: 0.18,
+      estimatedDailyRevenue: 12000,
     },
   },
 ];
@@ -46,9 +46,15 @@ const VENDOR_PRESETS = [
 export function VendorsList({ config, onConfigChange }: VendorsListProps) {
   const [showForm, setShowForm] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState("custom");
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    category: Vendor["category"];
+    capacity: number;
+    commissionRate: number;
+    estimatedDailyRevenue: number;
+  }>({
     name: "",
-    category: "food" as const,
+    category: "food",
     capacity: 500,
     commissionRate: 0.15,
     estimatedDailyRevenue: 5000,
@@ -162,7 +168,6 @@ export function VendorsList({ config, onConfigChange }: VendorsListProps) {
             >
               <option value="food">🍔 Food & Beverage</option>
               <option value="merchandise">🎁 Merchandise & Souvenirs</option>
-              <option value="sponsor">🤝 Sponsor Booth</option>
             </select>
           </div>
           <div>

@@ -2,13 +2,17 @@ import type { FestivalConfig } from "../../types/festival";
 import { StagesList } from "./tabs/StagesList";
 import { ArtistsList } from "./tabs/ArtistsList";
 import { VendorsList } from "./tabs/VendorsList";
+import { SponsorsList } from "./tabs/SponsorsList.tsx";
 import { ToiletsList } from "./tabs/ToiletsList";
 import { SecurityList } from "./tabs/SecurityList";
-import { AmenitiesList } from "./tabs/AmenitiesList";
+import { MedicalStaffList } from "./tabs/MedicalStaffList.tsx";
+import { ParkingList } from "./tabs/ParkingList.tsx";
+import { WifiList } from "./tabs/WifiList.tsx";
+import type { ConfiguratorTab } from "./ConfiguratorSidebar";
 
 interface WorkspaceProps {
   config: FestivalConfig;
-  activeTab: string;
+  activeTab: ConfiguratorTab;
   onConfigChange: (config: FestivalConfig) => void;
 }
 
@@ -22,10 +26,13 @@ export function ConfiguratorWorkspace({
       <h2 className="mb-6 text-xl font-semibold text-slate-900">
         {activeTab === "stages" && "Stages & Venues"}
         {activeTab === "artists" && "Lineup"}
-        {activeTab === "vendors" && "Vendors & Sponsors"}
+        {activeTab === "vendors" && "Vendors"}
+        {activeTab === "sponsors" && "Sponsors"}
         {activeTab === "toilets" && "Restroom Facilities"}
-        {activeTab === "security" && "Security & Staff"}
-        {activeTab === "amenities" && "Amenities & Services"}
+        {activeTab === "security" && "Security"}
+        {activeTab === "medical" && "Medical Staff & Units"}
+        {activeTab === "parking" && "Parking"}
+        {activeTab === "wifi" && "WiFi"}
       </h2>
 
       <div className="space-y-4">
@@ -38,14 +45,23 @@ export function ConfiguratorWorkspace({
         {activeTab === "vendors" && (
           <VendorsList config={config} onConfigChange={onConfigChange} />
         )}
+        {activeTab === "sponsors" && (
+          <SponsorsList config={config} onConfigChange={onConfigChange} />
+        )}
         {activeTab === "toilets" && (
           <ToiletsList config={config} onConfigChange={onConfigChange} />
         )}
         {activeTab === "security" && (
           <SecurityList config={config} onConfigChange={onConfigChange} />
         )}
-        {activeTab === "amenities" && (
-          <AmenitiesList config={config} onConfigChange={onConfigChange} />
+        {activeTab === "medical" && (
+          <MedicalStaffList config={config} onConfigChange={onConfigChange} />
+        )}
+        {activeTab === "parking" && (
+          <ParkingList config={config} onConfigChange={onConfigChange} />
+        )}
+        {activeTab === "wifi" && (
+          <WifiList config={config} onConfigChange={onConfigChange} />
         )}
       </div>
     </main>

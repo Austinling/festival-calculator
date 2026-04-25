@@ -1,16 +1,23 @@
+import { useState } from "react";
+
 interface SidebarProps {
-  activeTab: string;
-  onTabChange: (tab: string) => void;
+  activeTab: ConfiguratorTab;
+  onTabChange: (tab: ConfiguratorTab) => void;
 }
 
 const TABS = [
   { id: "stages", label: "Stages", icon: "🎪" },
   { id: "artists", label: "Lineup", icon: "🎤" },
   { id: "vendors", label: "Vendors", icon: "🍔" },
+  { id: "sponsors", label: "Sponsors", icon: "🤝" },
   { id: "toilets", label: "Toilets", icon: "🚽" },
   { id: "security", label: "Security", icon: "👮" },
-  { id: "amenities", label: "Amenities", icon: "🏕️" },
-];
+  { id: "medical", label: "Medical", icon: "⚕️" },
+  { id: "parking", label: "Parking", icon: "🅿️" },
+  { id: "wifi", label: "WiFi", icon: "📶" },
+] as const;
+
+export type ConfiguratorTab = (typeof TABS)[number]["id"];
 
 export function ConfiguratorSidebar({ activeTab, onTabChange }: SidebarProps) {
   return (

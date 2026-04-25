@@ -52,9 +52,14 @@ const AMENITY_PRESETS = [
 export function AmenitiesList({ config, onConfigChange }: AmenitiesListProps) {
   const [showForm, setShowForm] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState("custom");
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    type: FestivalConfig["amenities"][number]["type"];
+    setupCost: number;
+    maintenanceCostPerDay: number;
+  }>({
     name: "",
-    type: "parking" as const,
+    type: "parking",
     setupCost: 5000,
     maintenanceCostPerDay: 500,
   });
@@ -159,7 +164,16 @@ export function AmenitiesList({ config, onConfigChange }: AmenitiesListProps) {
             <select
               value={formData.type}
               onChange={(e) =>
-                setFormData({ ...formData, type: e.target.value as any })
+                setFormData({
+                  ...formData,
+                  type: e.target.value as any,
+                  setupCost:
+                    e.target.value === "parking"
+                      ? 500
+                      : e.target.value === "wifi"
+                        ? 2500
+                        : formData.setupCost,
+                })
               }
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             >
@@ -178,7 +192,8 @@ export function AmenitiesList({ config, onConfigChange }: AmenitiesListProps) {
               Setup Cost
             </label>
             <p className="text-xs text-slate-600 mb-2">
-              One-time cost to build/install ($)
+              One-time cost to build/install ($). Parking and WiFi are
+              auto-priced in simulation by event size.
             </p>
             <input
               type="number"

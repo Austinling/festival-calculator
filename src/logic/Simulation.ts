@@ -4,6 +4,38 @@ import type {
   SimulationMetrics,
   WeatherCondition,
 } from "../types/festival";
+import { calculateElectricityCost } from "./StageTiers";
+
+type EventSizeTier = "small" | "medium" | "large";
+
+const WIFI_COST_BY_EVENT_SIZE: Record<EventSizeTier, number> = {
+  small: 2500,
+  medium: 10000,
+  large: 100000,
+};
+
+const PARKING_FIXED_COST_BY_EVENT_SIZE: Record<EventSizeTier, number> = {
+  small: 500,
+  medium: 4500,
+  large: 40000,
+};
+
+const PARKING_VARIABLE_COST_PER_DAY_BY_EVENT_SIZE: Record<
+  EventSizeTier,
+  number
+> = {
+  small: 120,
+  medium: 1600,
+  large: 11000,
+};
+
+const MEDICAL_ZONE_FLAT_COST = 15000;
+
+function getEventSizeTier(stageCount: number): EventSizeTier {
+  if (stageCount > 5) return "large";
+  if (stageCount >= 3) return "medium";
+  return "small";
+}
 
 // Weather Impact Multipliers
 const WEATHER_IMPACT = {
@@ -88,7 +120,11 @@ function calculateRevenue(
   attendance: number,
   ticketPrice: number,
   config: FestivalConfig,
-): { ticketRevenue: number; vendorRevenue: number } {
+): {
+  ticketRevenue: number;
+  vendorRevenue: number;
+  sponsorshipRevenue: number;
+} {
   const ticketRevenue = attendance * ticketPrice;
 
   const vendorRevenue = config.vendors.reduce((sum, vendor) => {
@@ -97,7 +133,12 @@ function calculateRevenue(
     return sum + revenue * vendor.commissionRate;
   }, 0);
 
-  return { ticketRevenue, vendorRevenue };
+  const sponsorshipRevenue = config.sponsors.reduce(
+    (sum, sponsor) => sum + sponsor.profit,
+    0,
+  );
+
+  return { ticketRevenue, vendorRevenue, sponsorshipRevenue };
 }
 
 // Calculate OPEX (Operating Expenses)
@@ -106,42 +147,109 @@ function calculateOPEX(
   attendance: number,
   daysOfEvent: number,
   weatherMultiplier: number,
-): number {
+): { totalOpex: number; electricityCost: number } {
   let opex = 0;
+  let electricityCostTotal = 0;
+  const eventSizeTier = getEventSizeTier(config.stages.length);
 
   // Staff costs
   config.security.forEach((staff) => {
-    opex += staff.quantity * staff.costPerDay * daysOfEvent;
+    opex +=
+      staff.quantity * staff.costPerHour * staff.hoursPerDay * daysOfEvent;
+  });
+
+  // Medical staff and resources
+  config.medicalStaff.forEach((staff) => {
+    opex +=
+      staff.quantity * staff.costPerHour * staff.hoursPerDay * daysOfEvent;
+    if (staff.role === "ambulance-4x4") {
+      opex +=
+        staff.quantity *
+        (staff.mileagePerDay ?? 0) *
+        (staff.mileageRatePerMile ?? 0.4) *
+        daysOfEvent;
+    }
+  });
+
+  // Artist booking costs (one cost per fixed 45-minute set)
+  config.artists.forEach((artist) => {
+    opex += artist.setCost;
   });
 
   // Toilet maintenance
   config.toilets.forEach((toilet) => {
-    const baseCost = toilet.quantity * toilet.maintenanceCostPerDay;
+    const baseCost = toilet.quantity * (toilet.maintenanceCostPerWeek / 7);
     opex += baseCost * daysOfEvent * weatherMultiplier;
   });
 
   // Amenity maintenance
   config.amenities.forEach((amenity) => {
+    if (amenity.type === "parking") {
+      opex +=
+        PARKING_VARIABLE_COST_PER_DAY_BY_EVENT_SIZE[eventSizeTier] *
+        daysOfEvent;
+      return;
+    }
+
+    if (amenity.type === "wifi") {
+      opex += WIFI_COST_BY_EVENT_SIZE[eventSizeTier];
+      return;
+    }
+
     opex += amenity.maintenanceCostPerDay * daysOfEvent;
   });
 
-  // Vendor support & logistics
-  opex += attendance * 2; // $2 per person for logistics
+  // Electricity costs for stages (24 hours per day at £0.2467/kWh)
+  const hoursPerDay = 24;
+  config.stages.forEach((stage) => {
+    const electricityCost = calculateElectricityCost(
+      stage.powerConsumption,
+      hoursPerDay,
+      daysOfEvent,
+    );
+    electricityCostTotal += electricityCost;
+    opex += electricityCost;
+  });
 
-  return Math.round(opex);
+  // Event logistics only when there is actual infrastructure to support
+  const hasOperationalCosts =
+    config.security.length > 0 ||
+    config.medicalStaff.length > 0 ||
+    config.toilets.length > 0 ||
+    config.amenities.length > 0 ||
+    config.vendors.length > 0;
+
+  if (hasOperationalCosts) {
+    opex += Math.ceil(attendance / 1000) * 250 * daysOfEvent;
+  }
+
+  return {
+    totalOpex: Math.round(opex),
+    electricityCost: Math.round(electricityCostTotal),
+  };
 }
 
 // Calculate CAPEX (Capital Expenses)
 function calculateCAPEX(config: FestivalConfig): number {
   let capex = 0;
+  const eventSizeTier = getEventSizeTier(config.stages.length);
 
   config.stages.forEach((stage) => {
     capex += stage.setupCost;
   });
 
   config.amenities.forEach((amenity) => {
+    if (amenity.type === "parking") {
+      capex += PARKING_FIXED_COST_BY_EVENT_SIZE[eventSizeTier];
+      return;
+    }
+
     capex += amenity.setupCost;
   });
+
+  if (config.medicalStaff.length > 0) {
+    capex += MEDICAL_ZONE_FLAT_COST;
+  }
 
   // Infrastructure costs (toilets, etc)
   config.toilets.forEach((toilet) => {
@@ -179,7 +287,7 @@ export function simulateFestival(
   modifiers: SimulationModifiers,
 ): SimulationMetrics {
   const daysOfEvent = config.festival.durationDays;
-  const ticketPrice = 50; // $50 per ticket
+  const ticketPrice = modifiers.ticketPrice;
   const weatherMultiplier =
     WEATHER_IMPACT[modifiers.weather as WeatherCondition].cleanupCost;
 
@@ -219,14 +327,14 @@ export function simulateFestival(
   );
 
   // Step 3: Financials
-  const { ticketRevenue, vendorRevenue } = calculateRevenue(
+  const { ticketRevenue, vendorRevenue, sponsorshipRevenue } = calculateRevenue(
     attendance,
     ticketPrice,
     config,
   );
-  const totalRevenue = ticketRevenue + vendorRevenue;
+  const totalRevenue = ticketRevenue + vendorRevenue + sponsorshipRevenue;
 
-  const opex = calculateOPEX(
+  const { totalOpex, electricityCost } = calculateOPEX(
     config,
     attendance,
     daysOfEvent,
@@ -234,7 +342,7 @@ export function simulateFestival(
   );
   const capex = calculateCAPEX(config);
 
-  const netProfit = totalRevenue - opex - capex;
+  const netProfit = totalRevenue - totalOpex - capex;
   const breakEvenDay = Math.ceil(
     capex / Math.max(totalRevenue / daysOfEvent, 1),
   );
@@ -271,7 +379,9 @@ export function simulateFestival(
     totalRevenue: Math.round(totalRevenue),
     ticketRevenue: Math.round(ticketRevenue),
     vendorCommission: Math.round(vendorRevenue),
-    totalOPEX: opex,
+    sponsorshipRevenue: Math.round(sponsorshipRevenue),
+    electricityCost,
+    totalOPEX: totalOpex,
     totalCAPEX: capex,
     netProfit: Math.round(netProfit),
     breakEvenPoint: breakEvenDay,

@@ -10,29 +10,20 @@ interface ToiletsListProps {
 const TOILET_PRESETS = [
   {
     key: "standard-pack",
-    label: "Standard Pack",
+    label: "Standard Toilets (£30/week each)",
     data: {
-      quantity: 40,
+      quantity: 20,
       type: "standard" as const,
-      maintenanceCostPerDay: 1800,
+      maintenanceCostPerWeek: 30,
     },
   },
   {
-    key: "accessible-pack",
-    label: "Accessible Pack",
-    data: {
-      quantity: 12,
-      type: "accessible" as const,
-      maintenanceCostPerDay: 900,
-    },
-  },
-  {
-    key: "vip-pack",
-    label: "VIP Restroom Pack",
+    key: "disabled-pack",
+    label: "Disabled Toilets (£50/week each)",
     data: {
       quantity: 8,
-      type: "luxury" as const,
-      maintenanceCostPerDay: 2400,
+      type: "disabled" as const,
+      maintenanceCostPerWeek: 50,
     },
   },
 ];
@@ -43,7 +34,7 @@ export function ToiletsList({ config, onConfigChange }: ToiletsListProps) {
   const [formData, setFormData] = useState({
     quantity: 10,
     type: "standard" as const,
-    maintenanceCostPerDay: 500,
+    maintenanceCostPerWeek: 30,
   });
 
   const addToilet = () => {
@@ -51,7 +42,7 @@ export function ToiletsList({ config, onConfigChange }: ToiletsListProps) {
       id: `toilet-${Date.now()}`,
       quantity: formData.quantity,
       type: formData.type,
-      maintenanceCostPerDay: formData.maintenanceCostPerDay,
+      maintenanceCostPerWeek: formData.maintenanceCostPerWeek,
     };
 
     onConfigChange({
@@ -59,7 +50,7 @@ export function ToiletsList({ config, onConfigChange }: ToiletsListProps) {
       toilets: [...config.toilets, newToilet],
     });
 
-    setFormData({ quantity: 10, type: "standard", maintenanceCostPerDay: 500 });
+    setFormData({ quantity: 10, type: "standard", maintenanceCostPerWeek: 30 });
     setSelectedPreset("custom");
     setShowForm(false);
   };
@@ -86,7 +77,8 @@ export function ToiletsList({ config, onConfigChange }: ToiletsListProps) {
               Quick Preset
             </label>
             <p className="text-xs text-slate-600 mb-2">
-              Choose a restroom package, then tweak as needed.
+              Toilets are limited to standard and disabled units with weekly
+              costs.
             </p>
             <select
               value={selectedPreset}
@@ -135,39 +127,39 @@ export function ToiletsList({ config, onConfigChange }: ToiletsListProps) {
               Type
             </label>
             <p className="text-xs text-slate-600 mb-2">
-              Affects cost and attendee satisfaction
+              Costs are fixed by type: standard £30/week, disabled £50/week.
             </p>
             <select
               value={formData.type}
               onChange={(e) =>
-                setFormData({ ...formData, type: e.target.value as any })
+                setFormData({
+                  ...formData,
+                  type: e.target.value as any,
+                  maintenanceCostPerWeek:
+                    e.target.value === "disabled" ? 50 : 30,
+                })
               }
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             >
               <option value="standard">Standard - Basic facilities</option>
-              <option value="accessible">
-                Accessible - Wheelchair friendly
-              </option>
-              <option value="luxury">
-                Luxury - Premium, reduces wait times
-              </option>
+              <option value="disabled">Disabled - Accessible facilities</option>
             </select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Daily Maintenance Cost
+              Weekly Cost Per Toilet
             </label>
             <p className="text-xs text-slate-600 mb-2">
-              Cleaning & upkeep per day ($)
+              Based on your requested assumptions (£/week per unit)
             </p>
             <input
               type="number"
-              placeholder="500"
-              value={formData.maintenanceCostPerDay}
+              placeholder="30"
+              value={formData.maintenanceCostPerWeek}
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  maintenanceCostPerDay: parseInt(e.target.value),
+                  maintenanceCostPerWeek: parseInt(e.target.value, 10) || 0,
                 })
               }
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -200,7 +192,7 @@ export function ToiletsList({ config, onConfigChange }: ToiletsListProps) {
               {toilet.quantity} × {toilet.type}
             </p>
             <p className="text-xs text-slate-600">
-              ${toilet.maintenanceCostPerDay.toLocaleString()}/day maintenance
+              £{toilet.maintenanceCostPerWeek.toLocaleString()}/week each
             </p>
           </div>
           <button

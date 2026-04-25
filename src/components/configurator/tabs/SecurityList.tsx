@@ -9,30 +9,33 @@ interface SecurityListProps {
 
 const SECURITY_PRESETS = [
   {
-    key: "standard-security",
-    label: "Standard Security Team",
+    key: "general-security",
+    label: "General Security Officer (£15/hr)",
     data: {
-      quantity: 40,
-      role: "perimeter" as const,
-      costPerDay: 180,
+      quantity: 20,
+      role: "general-officer" as const,
+      costPerHour: 15,
+      hoursPerDay: 10,
     },
   },
   {
-    key: "crowd-control",
-    label: "Crowd Control Team",
+    key: "door-supervisor",
+    label: "Door Supervisor (£20/hr)",
     data: {
-      quantity: 30,
-      role: "crowd-control" as const,
-      costPerDay: 200,
+      quantity: 12,
+      role: "door-supervisor" as const,
+      costPerHour: 20,
+      hoursPerDay: 10,
     },
   },
   {
-    key: "medical-response",
-    label: "Medical Response Team",
+    key: "traffic-management",
+    label: "Car Park / Traffic (£15/hr)",
     data: {
-      quantity: 15,
-      role: "medical" as const,
-      costPerDay: 260,
+      quantity: 8,
+      role: "traffic-management" as const,
+      costPerHour: 15,
+      hoursPerDay: 10,
     },
   },
 ];
@@ -40,10 +43,16 @@ const SECURITY_PRESETS = [
 export function SecurityList({ config, onConfigChange }: SecurityListProps) {
   const [showForm, setShowForm] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState("custom");
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    quantity: number;
+    role: "general-officer" | "door-supervisor" | "traffic-management";
+    costPerHour: number;
+    hoursPerDay: number;
+  }>({
     quantity: 20,
-    role: "perimeter" as const,
-    costPerDay: 150,
+    role: "general-officer",
+    costPerHour: 15,
+    hoursPerDay: 10,
   });
 
   const addStaff = () => {
@@ -51,7 +60,8 @@ export function SecurityList({ config, onConfigChange }: SecurityListProps) {
       id: `security-${Date.now()}`,
       quantity: formData.quantity,
       role: formData.role,
-      costPerDay: formData.costPerDay,
+      costPerHour: formData.costPerHour,
+      hoursPerDay: formData.hoursPerDay,
     };
 
     onConfigChange({
@@ -59,7 +69,12 @@ export function SecurityList({ config, onConfigChange }: SecurityListProps) {
       security: [...config.security, newStaff],
     });
 
-    setFormData({ quantity: 20, role: "perimeter", costPerDay: 150 });
+    setFormData({
+      quantity: 20,
+      role: "general-officer",
+      costPerHour: 15,
+      hoursPerDay: 10,
+    });
     setSelectedPreset("custom");
     setShowForm(false);
   };
@@ -135,41 +150,60 @@ export function SecurityList({ config, onConfigChange }: SecurityListProps) {
               Role
             </label>
             <p className="text-xs text-slate-600 mb-2">
-              What they do at the festival
+              Fixed role options and hourly rates from your assumptions.
             </p>
             <select
               value={formData.role}
               onChange={(e) =>
-                setFormData({ ...formData, role: e.target.value as any })
+                setFormData({
+                  ...formData,
+                  role: e.target.value as any,
+                  costPerHour: e.target.value === "door-supervisor" ? 20 : 15,
+                })
               }
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             >
-              <option value="perimeter">
-                👮 Perimeter Security - Entrance/exit control
+              <option value="general-officer">
+                👮 General Security Officer
               </option>
-              <option value="crowd-control">
-                👥 Crowd Control - Floor management, safety
-              </option>
-              <option value="medical">
-                ⚕️ Medical Staff - First aid, emergencies
+              <option value="door-supervisor">🚪 Door Supervisor</option>
+              <option value="traffic-management">
+                🚗 Car Park / Traffic Management
               </option>
             </select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Daily Cost Per Person
+              Cost Per Hour
             </label>
             <p className="text-xs text-slate-600 mb-2">
-              Salary/wages per day per staff member ($)
+              General: £15/hr, Door Supervisor: £19-£21/hr, Traffic: £15/hr
             </p>
             <input
               type="number"
-              placeholder="150"
-              value={formData.costPerDay}
+              placeholder="15"
+              value={formData.costPerHour}
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  costPerDay: parseInt(e.target.value),
+                  costPerHour: parseInt(e.target.value, 10) || 0,
+                })
+              }
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Hours Per Day
+            </label>
+            <input
+              type="number"
+              placeholder="10"
+              value={formData.hoursPerDay}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  hoursPerDay: parseInt(e.target.value, 10) || 0,
                 })
               }
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -202,7 +236,7 @@ export function SecurityList({ config, onConfigChange }: SecurityListProps) {
               {staff.quantity} × {staff.role}
             </p>
             <p className="text-xs text-slate-600">
-              ${staff.costPerDay}/day per person
+              £{staff.costPerHour}/hr • {staff.hoursPerDay}h/day
             </p>
           </div>
           <button

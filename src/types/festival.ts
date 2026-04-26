@@ -25,6 +25,7 @@ export interface Artist {
   id: string;
   name: string;
   stageId: string;
+  performanceDay?: number; // 1-based festival day assignment
   genre: string;
   duration: number; // in minutes (fixed at 45 per set)
   startTime: string; // auto-assigned HH:mm
@@ -101,10 +102,10 @@ export interface FestivalConfig {
 export type WeatherCondition = "sunny" | "rainy" | "cloudy" | "extreme";
 
 export interface SimulationModifiers {
-  weather: WeatherCondition;
-  marketingBudget: number; // percentage 0-100
+  weatherByDay: WeatherCondition[]; // one forecast per festival day
+  marketingBudget: number; // direct spend in dollars
   eventReputation: number; // 0-100
-  ticketPrice: number;
+  ticketPrice: number[]; // one value per festival day
 }
 
 // Simulation Results - Detailed breakdown

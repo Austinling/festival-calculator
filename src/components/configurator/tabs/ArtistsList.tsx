@@ -9,36 +9,47 @@ interface ArtistsListProps {
 
 const ARTIST_PRESETS = [
   {
-    key: "justin-bieber",
-    label: "Justin Bieber (Pop Headliner)",
+    key: "global-superstar",
+    label: "Global Superstar (The Crowd Magnet)",
     data: {
-      name: "Justin Bieber",
+      name: "Superstar Act",
       genre: "pop",
-      setCost: 12000,
-      ticketRevenue: 60,
-      drawFactor: 1.9,
+      setCost: 4000000, // Extremely expensive
+      ticketRevenue: 80,
+      drawFactor: 2, // Will fill almost any capacity
     },
   },
   {
-    key: "dj-snake",
-    label: "DJ Snake (EDM)",
+    key: "mid-tier-pro",
+    label: "Reliable Touring Act (The Workhorse)",
     data: {
-      name: "DJ Snake",
-      genre: "edm",
-      setCost: 9000,
-      ticketRevenue: 40,
-      drawFactor: 1.6,
+      name: "Mid-Tier Band",
+      genre: "rock",
+      setCost: 150000,
+      ticketRevenue: 30,
+      drawFactor: 1.2, // Solid draw for a fair price
     },
   },
   {
-    key: "indie-band",
-    label: "Indie Band Slot",
+    key: "local-talent",
+    label: "Local Opener (Budget Saver)",
     data: {
-      name: "The Midnight Signals",
-      genre: "indie",
-      setCost: 3500,
+      name: "Local Artist",
+      genre: "various",
+      setCost: 500, // Practically free
+      ticketRevenue: 5,
+      drawFactor: 0.4, // Tiny draw, but no risk
+    },
+  },
+  {
+    key: "viral-sensation",
+    label: "Viral Newcomer (High Hype)",
+    data: {
+      name: "Viral Act",
+      genre: "pop",
+      setCost: 40000,
       ticketRevenue: 20,
-      drawFactor: 1.2,
+      drawFactor: 1.6, // Great "bang for your buck" draw
     },
   },
 ];
@@ -59,6 +70,7 @@ export function ArtistsList({ config, onConfigChange }: ArtistsListProps) {
   const [formData, setFormData] = useState({
     name: "",
     stageId: config.stages[0]?.id || "",
+    performanceDay: 1,
     genre: "rock",
     setCost: 2500,
     ticketRevenue: 0,
@@ -72,6 +84,7 @@ export function ArtistsList({ config, onConfigChange }: ArtistsListProps) {
       id: `artist-${Date.now()}`,
       name: formData.name,
       stageId: formData.stageId,
+      performanceDay: formData.performanceDay,
       genre: formData.genre,
       duration: 45,
       startTime: getAutoStartTime(config.artists.length),
@@ -88,6 +101,7 @@ export function ArtistsList({ config, onConfigChange }: ArtistsListProps) {
     setFormData({
       name: "",
       stageId: config.stages[0]?.id || "",
+      performanceDay: 1,
       genre: "rock",
       setCost: 2500,
       ticketRevenue: 0,
@@ -186,6 +200,30 @@ export function ArtistsList({ config, onConfigChange }: ArtistsListProps) {
                 Add at least one stage before creating artists.
               </p>
             )}
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Performance Day
+            </label>
+            <select
+              value={formData.performanceDay}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  performanceDay: Number(e.target.value),
+                })
+              }
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            >
+              {Array.from(
+                { length: Math.max(config.festival.durationDays, 1) },
+                (_, index) => (
+                  <option key={index + 1} value={index + 1}>
+                    Day {index + 1}
+                  </option>
+                ),
+              )}
+            </select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -303,8 +341,9 @@ export function ArtistsList({ config, onConfigChange }: ArtistsListProps) {
             <div>
               <p className="font-medium text-slate-900">{artist.name}</p>
               <p className="text-xs text-slate-600">
-                {stage?.name} • {artist.startTime} • 45 min • Draw:{" "}
-                {artist.drawFactor}x • £{artist.setCost.toLocaleString()} / set
+                Day {artist.performanceDay ?? 1} • {stage?.name} •{" "}
+                {artist.startTime} • 45 min • Draw: {artist.drawFactor}x • £
+                {artist.setCost.toLocaleString()} / set
               </p>
             </div>
             <button

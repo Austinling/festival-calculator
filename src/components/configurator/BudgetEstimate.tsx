@@ -1,7 +1,10 @@
 interface EstimateData {
   capex: number;
   totalOpex: number;
+  totalEventOpex: number;
   projectedAttendance: number;
+  selectedDayAttendance: number;
+  selectedDay: number;
   budgetRemaining: number;
   electricityCost: number;
   recommendations: {
@@ -78,7 +81,7 @@ export function BudgetEstimate({
 
   const percentBudgetUsed =
     ((budget - estimate.budgetRemaining) / budget) * 100;
-  const percentCapacityUsed = (estimate.projectedAttendance / capacity) * 100;
+  const percentCapacityUsed = (estimate.selectedDayAttendance / capacity) * 100;
   const budgetStatus = estimate.budgetRemaining >= 0 ? "safe" : "over";
 
   return (
@@ -95,13 +98,14 @@ export function BudgetEstimate({
 
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="mb-2 text-sm font-semibold text-slate-900">
-          Operating Costs (OPEX)
+          Operating Costs (Day {estimate.selectedDay})
         </h3>
         <p className="text-2xl font-bold text-slate-900">
           ${(estimate.totalOpex / 1000).toFixed(1)}k
         </p>
-        <p className="text-xs text-slate-600">
-          Staff, services, maintenance, electricity
+        <p className="text-xs text-slate-600">Estimated daily operating load</p>
+        <p className="mt-1 text-xs text-slate-600">
+          Event total: £{estimate.totalEventOpex.toLocaleString()}
         </p>
         <p className="mt-1 text-xs font-semibold text-slate-700">
           Electricity included: £{estimate.electricityCost.toLocaleString()}
@@ -162,10 +166,10 @@ export function BudgetEstimate({
 
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="mb-3 text-sm font-semibold text-slate-900">
-          Expected Turnout
+          Expected Turnout (Day {estimate.selectedDay})
         </h3>
         <p className="text-2xl font-bold text-slate-900">
-          {estimate.projectedAttendance.toLocaleString()}
+          {estimate.selectedDayAttendance.toLocaleString()}
         </p>
         <div className="mb-2 h-2 overflow-hidden rounded-full bg-slate-200">
           <div

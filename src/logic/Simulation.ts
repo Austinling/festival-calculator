@@ -4,7 +4,8 @@ import type {
   SimulationMetrics,
   WeatherCondition,
 } from "../types/festival";
-import { calculateElectricityCost } from "./StageTiers";
+import type { ExperienceLevel } from "./AuthTypes";
+import { calculateElectricityStats } from "./StageTiers";
 
 type EventSizeTier = "small" | "medium" | "large";
 
@@ -30,6 +31,17 @@ const PARKING_VARIABLE_COST_PER_DAY_BY_EVENT_SIZE: Record<
 };
 
 const MEDICAL_ZONE_FLAT_COST = 15000;
+const OPEX_REDUCTION_BY_EXPERIENCE: Record<ExperienceLevel, number> = {
+  beginner: 0,
+  intermediate: 0.05,
+  experienced: 0.15,
+};
+const ADVERSE_WEATHER_VENDOR_REVENUE_MULTIPLIER = 0.6;
+const ADVERSE_WEATHER_WASTE_CLEANUP_MULTIPLIER = 2;
+const WASTE_CLEANUP_COST_PER_ATTENDEE = 2;
+const STAFF_FATIGUE_THRESHOLD_DAYS = 5;
+const STAFF_FATIGUE_PREMIUM_MULTIPLIER = 1.2;
+const ELECTRICITY_BASE_LOAD_MULTIPLIER = 0.05;
 
 function getEventSizeTier(stageCount: number): EventSizeTier {
   if (stageCount > 5) return "large";
@@ -45,28 +57,75 @@ const WEATHER_IMPACT = {
   extreme: { attendance: 0.5, cleanupCost: 2.0 },
 } as const;
 
+function isAdverseWeather(weather: WeatherCondition): boolean {
+  return weather === "rainy" || weather === "extreme";
+}
+
 // Calculate base attendance from festival capacity and marketing
 function calculateAttendance(
   config: FestivalConfig,
   modifiers: SimulationModifiers,
-): number {
+): { projectedAttendance: number; attendanceByDay: number[] } {
   const capacity = config.festival.capacity;
-  const marketingMultiplier = 0.4 + (modifiers.marketingBudget / 100) * 0.6; // 40%-100% of capacity
+  const daysOfEvent = Math.max(config.festival.durationDays, 1);
   const reputationMultiplier = 0.7 + (modifiers.eventReputation / 100) * 0.3; // 70%-100%
-  const weatherMultiplier = WEATHER_IMPACT[modifiers.weather].attendance;
-  const artistDrawMultiplier =
-    config.artists.reduce((sum, a) => sum + a.drawFactor, 0) /
-      Math.max(config.artists.length, 1) || 1;
+  const baselinePricePerDay = 60;
+  const marketingCapBoost = Math.min(
+    (Math.max(modifiers.marketingBudget, 0) / 10000) * 0.1,
+    1,
+  );
+  const attendanceCap = Math.floor(capacity * (1 + marketingCapBoost));
 
-  const projected = Math.floor(
-    capacity *
-      marketingMultiplier *
-      reputationMultiplier *
-      weatherMultiplier *
-      artistDrawMultiplier,
+  const ticketPriceByDay = Array.from({ length: daysOfEvent }, (_, index) => {
+    const providedPrice = modifiers.ticketPrice[index];
+    return typeof providedPrice === "number" && providedPrice > 0
+      ? providedPrice
+      : baselinePricePerDay;
+  });
+
+  const weatherByDay = Array.from({ length: daysOfEvent }, (_, index) => {
+    const weather = modifiers.weatherByDay[index];
+    return weather ?? "sunny";
+  });
+
+  const attendanceByDay = Array.from({ length: daysOfEvent }, (_, index) => {
+    const performanceDay = index + 1;
+    const artistsForDay = config.artists.filter(
+      (artist) => (artist.performanceDay ?? 1) === performanceDay,
+    );
+
+    if (artistsForDay.length === 0) return 0;
+
+    const topDraw = Math.max(...artistsForDay.map((a) => a.drawFactor), 0);
+    const artistDrawMultiplier = topDraw;
+
+    const currentPricePerDay = ticketPriceByDay[index];
+    const weatherMultiplier = WEATHER_IMPACT[weatherByDay[index]].attendance;
+    const priceMultiplier = Math.max(
+      0.2,
+      Math.min(1.5, Math.pow(baselinePricePerDay / currentPricePerDay, 1.1)),
+    );
+
+    const projected = Math.floor(
+      attendanceCap *
+        reputationMultiplier *
+        weatherMultiplier *
+        artistDrawMultiplier *
+        priceMultiplier,
+    );
+
+    return Math.min(projected, attendanceCap);
+  });
+
+  const projectedAttendance = Math.floor(
+    attendanceByDay.reduce((sum, dayAttendance) => sum + dayAttendance, 0) /
+      Math.max(1, daysOfEvent),
   );
 
-  return Math.min(projected, capacity);
+  return {
+    projectedAttendance,
+    attendanceByDay,
+  };
 }
 
 // Calculate toilet wait times
@@ -84,11 +143,13 @@ function calculateCrowdSatisfaction(
   toiletWaitTime: number,
   securityStaffRatio: number,
   vendorCapacityMet: boolean,
+  crowdingPenaltyPoints: number,
 ): number {
   let score = 100;
   score -= Math.min(toiletWaitTime * 2, 30); // Max -30 for wait times
   score -= Math.min((100 - securityStaffRatio * 100) * 0.3, 20); // Max -20 for security
   if (!vendorCapacityMet) score -= 15; // -15 if vendors can't handle crowd
+  score -= crowdingPenaltyPoints;
   return Math.max(score, 20);
 }
 
@@ -107,30 +168,49 @@ function calculateSafetyRating(
   incidents: number,
   staffRatio: number,
   amenitiesCount: number,
+  crowdingPenaltyPoints: number,
 ): number {
   let score = 100;
   score -= incidents * 3;
   score += staffRatio * 15; // Good staff ratio helps
   score += Math.min(amenitiesCount * 5, 20); // Medical, parking, etc.
+  score -= crowdingPenaltyPoints;
   return Math.max(Math.min(score, 100), 20);
 }
 
 // Calculate revenue
 function calculateRevenue(
-  attendance: number,
-  ticketPrice: number,
+  attendanceByDay: number[],
+  ticketPriceByDay: number[],
+  weatherByDay: WeatherCondition[],
   config: FestivalConfig,
 ): {
   ticketRevenue: number;
   vendorRevenue: number;
   sponsorshipRevenue: number;
 } {
-  const ticketRevenue = attendance * ticketPrice;
+  const ticketRevenue = attendanceByDay.reduce(
+    (sum, dayAttendance, index) =>
+      sum +
+      dayAttendance * (ticketPriceByDay[index] ?? ticketPriceByDay[0] ?? 0),
+    0,
+  );
 
-  const vendorRevenue = config.vendors.reduce((sum, vendor) => {
-    const vendorAttendance = Math.min(attendance, vendor.capacity);
-    const revenue = vendorAttendance * 25; // Avg $25 per person at vendor
-    return sum + revenue * vendor.commissionRate;
+  const vendorRevenue = attendanceByDay.reduce((sum, dayAttendance, index) => {
+    const weather = weatherByDay[index] ?? "sunny";
+    const weatherRevenueMultiplier = isAdverseWeather(weather)
+      ? ADVERSE_WEATHER_VENDOR_REVENUE_MULTIPLIER
+      : 1;
+
+    const dayVendorRevenue = config.vendors.reduce((daySum, vendor) => {
+      const vendorAttendance = Math.min(dayAttendance, vendor.capacity);
+      const revenue = vendorAttendance * 25; // Avg $25 per person at vendor
+      return (
+        daySum + revenue * vendor.commissionRate * weatherRevenueMultiplier
+      );
+    }, 0);
+
+    return sum + dayVendorRevenue;
   }, 0);
 
   const sponsorshipRevenue = config.sponsors.reduce(
@@ -144,24 +224,41 @@ function calculateRevenue(
 // Calculate OPEX (Operating Expenses)
 function calculateOPEX(
   config: FestivalConfig,
-  attendance: number,
+  attendanceByDay: number[],
+  weatherByDay: WeatherCondition[],
   daysOfEvent: number,
-  weatherMultiplier: number,
+  experienceLevel: ExperienceLevel,
+  marketingBudget: number,
 ): { totalOpex: number; electricityCost: number } {
   let opex = 0;
   let electricityCostTotal = 0;
+  let totalKWhUsed = 0;
+
   const eventSizeTier = getEventSizeTier(config.stages.length);
+  const fatigueMultiplier =
+    daysOfEvent > STAFF_FATIGUE_THRESHOLD_DAYS
+      ? STAFF_FATIGUE_PREMIUM_MULTIPLIER
+      : 1;
+  const nonDiscountedMarketingCost = Math.max(marketingBudget, 0);
 
   // Staff costs
   config.security.forEach((staff) => {
     opex +=
-      staff.quantity * staff.costPerHour * staff.hoursPerDay * daysOfEvent;
+      staff.quantity *
+      staff.costPerHour *
+      staff.hoursPerDay *
+      daysOfEvent *
+      fatigueMultiplier;
   });
 
   // Medical staff and resources
   config.medicalStaff.forEach((staff) => {
     opex +=
-      staff.quantity * staff.costPerHour * staff.hoursPerDay * daysOfEvent;
+      staff.quantity *
+      staff.costPerHour *
+      staff.hoursPerDay *
+      daysOfEvent *
+      fatigueMultiplier;
     if (staff.role === "ambulance-4x4") {
       opex +=
         staff.quantity *
@@ -179,7 +276,10 @@ function calculateOPEX(
   // Toilet maintenance
   config.toilets.forEach((toilet) => {
     const baseCost = toilet.quantity * (toilet.maintenanceCostPerWeek / 7);
-    opex += baseCost * daysOfEvent * weatherMultiplier;
+    weatherByDay.forEach((weather) => {
+      const cleanupMultiplier = WEATHER_IMPACT[weather].cleanupCost;
+      opex += baseCost * cleanupMultiplier;
+    });
   });
 
   // Amenity maintenance
@@ -202,14 +302,31 @@ function calculateOPEX(
   // Electricity costs for stages (24 hours per day at £0.2467/kWh)
   const hoursPerDay = 24;
   config.stages.forEach((stage) => {
-    const electricityCost = calculateElectricityCost(
+    const { cost, kWh } = calculateElectricityStats(
       stage.powerConsumption,
-      hoursPerDay,
       daysOfEvent,
     );
-    electricityCostTotal += electricityCost;
-    opex += electricityCost;
+
+    totalKWhUsed += kWh;
+    electricityCostTotal += cost;
+    opex += cost;
   });
+
+  const wasteCleanupCost = attendanceByDay.reduce(
+    (sum, dayAttendance, index) => {
+      const weather = weatherByDay[index] ?? "sunny";
+      const weatherWasteMultiplier = isAdverseWeather(weather)
+        ? ADVERSE_WEATHER_WASTE_CLEANUP_MULTIPLIER
+        : 1;
+
+      return (
+        sum +
+        dayAttendance * WASTE_CLEANUP_COST_PER_ATTENDEE * weatherWasteMultiplier
+      );
+    },
+    0,
+  );
+  opex += wasteCleanupCost;
 
   // Event logistics only when there is actual infrastructure to support
   const hasOperationalCosts =
@@ -220,12 +337,21 @@ function calculateOPEX(
     config.vendors.length > 0;
 
   if (hasOperationalCosts) {
-    opex += Math.ceil(attendance / 1000) * 250 * daysOfEvent;
+    const averageAttendance =
+      attendanceByDay.reduce((sum, dayAttendance) => sum + dayAttendance, 0) /
+      Math.max(1, daysOfEvent);
+    opex += Math.ceil(averageAttendance / 1000) * 250 * daysOfEvent;
   }
 
+  const reductionMultiplier =
+    1 - (OPEX_REDUCTION_BY_EXPERIENCE[experienceLevel] ?? 0);
+
   return {
-    totalOpex: Math.round(opex),
-    electricityCost: Math.round(electricityCostTotal),
+    totalOpex: Math.round(
+      opex * reductionMultiplier + nonDiscountedMarketingCost,
+    ),
+    electricityCost: Math.round(electricityCostTotal * reductionMultiplier),
+    totalKWh: Math.round(totalKWhUsed),
   };
 }
 
@@ -285,19 +411,31 @@ function assignGrade(
 export function simulateFestival(
   config: FestivalConfig,
   modifiers: SimulationModifiers,
+  experienceLevel: ExperienceLevel = "beginner",
 ): SimulationMetrics {
-  const daysOfEvent = config.festival.durationDays;
-  const ticketPrice = modifiers.ticketPrice;
-  const weatherMultiplier =
-    WEATHER_IMPACT[modifiers.weather as WeatherCondition].cleanupCost;
+  const daysOfEvent = Math.max(config.festival.durationDays, 1);
+  const ticketPriceByDay = Array.from({ length: daysOfEvent }, (_, index) => {
+    const price = modifiers.ticketPrice[index];
+    return typeof price === "number" && price > 0 ? price : 60;
+  });
+  const weatherByDay = Array.from({ length: daysOfEvent }, (_, index) => {
+    const weather = modifiers.weatherByDay[index];
+    return (weather ?? "sunny") as WeatherCondition;
+  });
 
   // Step 1: Calculate Attendance
-  const attendance = calculateAttendance(config, modifiers);
-  const peakDayAttendance = Math.ceil(attendance * 0.8); // 80% on peak day
-  const attendanceByDay = Array.from({ length: daysOfEvent }, (_, i) => {
-    const factor = Math.sin((i / daysOfEvent) * Math.PI) * 0.5 + 0.5;
-    return Math.floor(attendance * factor);
-  });
+  const { projectedAttendance: attendance, attendanceByDay } =
+    calculateAttendance(config, modifiers);
+  const peakDayAttendance = Math.max(...attendanceByDay, 0);
+  const totalStageCapacity = config.stages.reduce(
+    (sum, stage) => sum + stage.capacity,
+    0,
+  );
+  const overCapacityRatio = peakDayAttendance / Math.max(1, totalStageCapacity);
+  const crowdingPenaltyPoints =
+    overCapacityRatio > 1.2
+      ? Math.min(25, Math.ceil((overCapacityRatio - 1.2) * 40))
+      : 0;
 
   // Step 2: Crowd Experience
   const totalToilets = config.toilets.reduce((sum, t) => sum + t.quantity, 0);
@@ -313,6 +451,7 @@ export function simulateFestival(
     toiletWaitTime,
     staffRatio,
     vendorCapacityMet,
+    crowdingPenaltyPoints,
   );
 
   const securityIncidents = calculateSecurityIncidents(
@@ -324,39 +463,51 @@ export function simulateFestival(
     securityIncidents,
     staffRatio,
     config.amenities.length,
+    crowdingPenaltyPoints,
   );
 
   // Step 3: Financials
   const { ticketRevenue, vendorRevenue, sponsorshipRevenue } = calculateRevenue(
-    attendance,
-    ticketPrice,
+    attendanceByDay,
+    ticketPriceByDay,
+    weatherByDay,
     config,
   );
   const totalRevenue = ticketRevenue + vendorRevenue + sponsorshipRevenue;
 
-  const { totalOpex, electricityCost } = calculateOPEX(
+  const {
+    totalOpex,
+    electricityCost,
+    totalKWh: energyUsageResult,
+  } = calculateOPEX(
     config,
-    attendance,
+    attendanceByDay,
+    weatherByDay,
     daysOfEvent,
-    weatherMultiplier,
+    experienceLevel,
+    modifiers.marketingBudget,
   );
   const capex = calculateCAPEX(config);
 
   const netProfit = totalRevenue - totalOpex - capex;
   const breakEvenDay = Math.ceil(
-    capex / Math.max(totalRevenue / daysOfEvent, 1),
+    capex / Math.max(totalRevenue / Math.max(1, daysOfEvent), 1),
   );
 
   // Energy usage
-  const energyUsage = config.stages.reduce(
-    (sum, stage) => sum + stage.powerConsumption * 24 * daysOfEvent,
-    0,
-  );
+  const energyUsage = config.stages.reduce((sum, stage) => {
+    const showHours = 12; // Stages aren't full blast 24/7
+    const standbyHours = 12;
+    const dailyKwh =
+      stage.powerConsumption * showHours +
+      stage.powerConsumption * 0.1 * standbyHours;
+    return sum + dailyKwh * daysOfEvent;
+  }, 0);
 
   // Waste
   const wasteGenerated = (attendance * 2) / 1000; // 2kg per person -> tonnes
 
-  const staffRequired = Math.ceil(totalStaff / daysOfEvent);
+  const staffRequired = Math.ceil(totalStaff / Math.max(1, daysOfEvent));
 
   const grade = assignGrade(netProfit, crowdSatisfaction, safetyRating);
   const verdict =

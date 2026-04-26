@@ -9,36 +9,47 @@ interface VendorsListProps {
 
 const VENDOR_PRESETS = [
   {
-    key: "food-truck",
-    label: "Food Truck Cluster",
+    key: "food-court-mega",
+    label: "Main Food Court (High Volume)",
     data: {
-      name: "Street Bites Food Truck",
+      name: "Global Eats Plaza",
       category: "food" as const,
-      capacity: 1800,
-      commissionRate: 0.18,
-      estimatedDailyRevenue: 18000,
+      capacity: 5000, // Necessary for large crowds
+      commissionRate: 0.15, // Lower rate because they move so much volume
+      estimatedDailyRevenue: 60000,
     },
   },
   {
-    key: "merch-booth",
-    label: "Official Merch Booth",
+    key: "premium-merch",
+    label: "Official Artist Merch (High Profit)",
     data: {
-      name: "Official Festival Merch",
+      name: "Headline Merch Tent",
       category: "merchandise" as const,
-      capacity: 900,
-      commissionRate: 0.2,
-      estimatedDailyRevenue: 25000,
+      capacity: 1200,
+      commissionRate: 0.25, // Festivals take a massive cut of shirts/hats
+      estimatedDailyRevenue: 45000,
     },
   },
   {
-    key: "merch-pop-up",
-    label: "Pop-up Merchandise Kiosk",
+    key: "beverage-bar",
+    label: "Hydration & Bar Station",
     data: {
-      name: "Limited Merch Pop-up",
+      name: "The Oasis Bar",
+      category: "food" as const, // Categorized as food for logic, but functions as drinks
+      capacity: 3000,
+      commissionRate: 0.3, // Alcohol and soda have the highest margins
+      estimatedDailyRevenue: 35000,
+    },
+  },
+  {
+    key: "local-artisan",
+    label: "Local Craft Vendor",
+    data: {
+      name: "Artisan Row",
       category: "merchandise" as const,
-      capacity: 600,
-      commissionRate: 0.18,
-      estimatedDailyRevenue: 12000,
+      capacity: 400,
+      commissionRate: 0.1, // Low commission to attract local business
+      estimatedDailyRevenue: 5000,
     },
   },
 ];

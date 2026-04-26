@@ -8,9 +8,9 @@ interface SponsorsListProps {
 }
 
 const SPONSOR_TIERS = {
-  community: { label: "Community Sponsor", profit: 5000 },
-  regional: { label: "Regional Sponsor", profit: 25000 },
-  headline: { label: "Headline Sponsor", profit: 100000 },
+  community: { label: "Community Sponsor", profit: 10000 },
+  regional: { label: "Regional Sponsor", profit: 100000 },
+  headline: { label: "Headline Sponsor", profit: 1000000 },
 } as const;
 
 export function SponsorsList({ config, onConfigChange }: SponsorsListProps) {

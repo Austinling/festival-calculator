@@ -30,9 +30,10 @@ function createModifiers(
   overrides?: Partial<SimulationModifiers>,
 ): SimulationModifiers {
   return {
-    weather: "sunny",
-    marketingBudget: 50,
-    eventReputation: 50,
+    weatherByDay: ["sunny", "sunny", "sunny"],
+    marketingBudget: 0,
+    eventReputation: 30,
+    ticketPrice: [60, 60, 60],
     ...overrides,
   };
 }
@@ -47,7 +48,7 @@ describe("simulateFestival calculations", () => {
     expect(result.totalOPEX).toBe(0);
   });
 
-  test("attendance is capped at festival capacity", () => {
+  test("attendance is capped at boosted marketing cap", () => {
     const config = createBaseConfig();
     config.artists.push({
       id: "a1",
@@ -64,14 +65,14 @@ describe("simulateFestival calculations", () => {
     const result = simulateFestival(
       config,
       createModifiers({
-        marketingBudget: 100,
+        marketingBudget: 200000,
         eventReputation: 100,
-        weather: "sunny",
+        weatherByDay: ["sunny", "sunny", "sunny"],
       }),
     );
 
     expect(result.projectedAttendance).toBeLessThanOrEqual(
-      config.festival.capacity,
+      config.festival.capacity * 2,
     );
   });
 
@@ -86,16 +87,16 @@ describe("simulateFestival calculations", () => {
       startTime: "22:00",
       setCost: 5000,
       ticketRevenue: 80,
-      drawFactor: 1.8,
+      drawFactor: 1.0,
     });
 
     const sunny = simulateFestival(
       config,
-      createModifiers({ weather: "sunny" }),
+      createModifiers({ weatherByDay: ["sunny", "sunny", "sunny"] }),
     );
     const rainy = simulateFestival(
       config,
-      createModifiers({ weather: "rainy" }),
+      createModifiers({ weatherByDay: ["rainy", "rainy", "rainy"] }),
     );
 
     expect(rainy.projectedAttendance).toBeLessThan(sunny.projectedAttendance);
@@ -112,14 +113,137 @@ describe("simulateFestival calculations", () => {
 
     const sunny = simulateFestival(
       config,
-      createModifiers({ weather: "sunny" }),
+      createModifiers({ weatherByDay: ["sunny", "sunny", "sunny"] }),
     );
     const extreme = simulateFestival(
       config,
-      createModifiers({ weather: "extreme" }),
+      createModifiers({ weatherByDay: ["extreme", "extreme", "extreme"] }),
     );
 
     expect(extreme.totalOPEX).toBeGreaterThan(sunny.totalOPEX);
+  });
+
+  test("experienced profile gets lower OPEX than beginner", () => {
+    const config = createBaseConfig();
+    config.toilets.push({
+      id: "t1",
+      quantity: 10,
+      type: "standard",
+      maintenanceCostPerWeek: 700,
+    });
+    config.security.push({
+      id: "sec-1",
+      quantity: 20,
+      role: "general-officer",
+      costPerHour: 18,
+      hoursPerDay: 10,
+    });
+
+    const beginner = simulateFestival(config, createModifiers(), "beginner");
+    const experienced = simulateFestival(
+      config,
+      createModifiers(),
+      "experienced",
+    );
+
+    expect(experienced.totalOPEX).toBeLessThan(beginner.totalOPEX);
+  });
+
+  test("14-day model enforces zero attendance without artists and keeps flat marketing OPEX non-discounted", () => {
+    const config = createBaseConfig();
+    config.festival.durationDays = 14;
+
+    const result = simulateFestival(
+      config,
+      createModifiers({
+        marketingBudget: 50000,
+        weatherByDay: Array(14).fill("sunny"),
+        ticketPrice: Array(14).fill(60),
+      }),
+      "experienced",
+    );
+
+    expect(result.attendanceByDay).toEqual(Array(14).fill(0));
+    expect(result.projectedAttendance).toBe(0);
+    expect(result.totalOPEX).toBe(50000);
+  });
+
+  test("rainy weather doubles waste cleanup pressure and increases OPEX vs sunny", () => {
+    const config = createBaseConfig();
+    config.artists.push(
+      {
+        id: "a1",
+        name: "Day 1",
+        stageId: "s1",
+        performanceDay: 1,
+        genre: "pop",
+        duration: 45,
+        startTime: "18:00",
+        setCost: 2500,
+        ticketRevenue: 0,
+        drawFactor: 1.1,
+      },
+      {
+        id: "a2",
+        name: "Day 2",
+        stageId: "s1",
+        performanceDay: 2,
+        genre: "pop",
+        duration: 45,
+        startTime: "19:00",
+        setCost: 2500,
+        ticketRevenue: 0,
+        drawFactor: 1.1,
+      },
+      {
+        id: "a3",
+        name: "Day 3",
+        stageId: "s1",
+        performanceDay: 3,
+        genre: "pop",
+        duration: 45,
+        startTime: "20:00",
+        setCost: 2500,
+        ticketRevenue: 0,
+        drawFactor: 1.1,
+      },
+    );
+
+    const sunny = simulateFestival(
+      config,
+      createModifiers({ weatherByDay: ["sunny", "sunny", "sunny"] }),
+    );
+    const rainy = simulateFestival(
+      config,
+      createModifiers({ weatherByDay: ["rainy", "rainy", "rainy"] }),
+    );
+
+    expect(rainy.totalOPEX).toBeGreaterThan(sunny.totalOPEX);
+  });
+
+  test("events over 5 days apply staff fatigue premium", () => {
+    const config = createBaseConfig();
+    config.festival.durationDays = 6;
+    config.security.push({
+      id: "sec-fatigue",
+      quantity: 10,
+      role: "general-officer",
+      costPerHour: 10,
+      hoursPerDay: 10,
+    });
+
+    const result = simulateFestival(
+      config,
+      createModifiers({
+        marketingBudget: 0,
+        weatherByDay: Array(6).fill("sunny"),
+        ticketPrice: Array(6).fill(60),
+      }),
+      "beginner",
+    );
+
+    const expectedStaffingOpexWithFatigue = 10 * 10 * 10 * 6 * 1.2;
+    expect(result.totalOPEX).toBe(expectedStaffingOpexWithFatigue);
   });
 
   test("CAPEX includes stage, amenities, and toilet infrastructure", () => {
@@ -200,11 +324,40 @@ describe("simulateFestival calculations", () => {
     );
     const highMarketing = simulateFestival(
       config,
-      createModifiers({ marketingBudget: 100 }),
+      createModifiers({ marketingBudget: 200000 }),
     );
 
     expect(highMarketing.projectedAttendance).toBeGreaterThan(
       lowMarketing.projectedAttendance,
+    );
+  });
+
+  test("higher ticket price reduces projected attendance", () => {
+    const config = createBaseConfig();
+    config.artists.push({
+      id: "a-price-1",
+      name: "Price Sensitive Draw",
+      stageId: "s1",
+      performanceDay: 1,
+      genre: "pop",
+      duration: 45,
+      startTime: "20:00",
+      setCost: 3000,
+      ticketRevenue: 0,
+      drawFactor: 1.5,
+    });
+
+    const cheapTickets = simulateFestival(
+      config,
+      createModifiers({ ticketPrice: [30, 30, 30] }),
+    );
+    const expensiveTickets = simulateFestival(
+      config,
+      createModifiers({ ticketPrice: [300, 300, 300] }),
+    );
+
+    expect(expensiveTickets.projectedAttendance).toBeLessThan(
+      cheapTickets.projectedAttendance,
     );
   });
 

@@ -11,9 +11,21 @@ import type {
 } from "./types/festival";
 
 function normalizeFestivalConfig(config: any): FestivalConfig {
+  const durationDays =
+    typeof config?.festival?.durationDays === "number" &&
+    config.festival.durationDays > 0
+      ? config.festival.durationDays
+      : 1;
+
   const normalizedArtists = Array.isArray(config?.artists)
     ? config.artists.map((artist: any) => ({
         ...artist,
+        performanceDay:
+          typeof artist.performanceDay === "number" &&
+          artist.performanceDay >= 1 &&
+          artist.performanceDay <= durationDays
+            ? artist.performanceDay
+            : 1,
         duration: 45,
         setCost:
           typeof artist.setCost === "number"
@@ -88,10 +100,10 @@ function App() {
     useState<SimulationResult | null>(null);
   const [simulationModifiers, setSimulationModifiers] =
     useState<SimulationModifiers>({
-      weather: "sunny",
-      marketingBudget: 50,
+      weatherByDay: ["sunny"],
+      marketingBudget: 30000,
       eventReputation: 50,
-      ticketPrice: 50,
+      ticketPrice: [50],
     });
   const [view, setView] = useState<"profile" | "configurator" | "results">(
     "profile",
@@ -147,7 +159,11 @@ function App() {
   const handleSimulate = () => {
     if (!currentConfig) return;
 
-    const metrics = simulateFestival(currentConfig, simulationModifiers);
+    const metrics = simulateFestival(
+      currentConfig,
+      simulationModifiers,
+      user?.experienceLevel ?? "beginner",
+    );
     const result: SimulationResult = {
       id: `result-${Date.now()}`,
       festivalId: currentConfig.festival.id,
@@ -327,6 +343,7 @@ function App() {
           onConfigChange={saveConfig}
           modifiers={simulationModifiers}
           onModifiersChange={setSimulationModifiers}
+          experienceLevel={user.experienceLevel}
           onSimulate={handleSimulate}
         />
       )}

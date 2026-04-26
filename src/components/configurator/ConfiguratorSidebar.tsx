@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 interface SidebarProps {
   activeTab: ConfiguratorTab;
   onTabChange: (tab: ConfiguratorTab) => void;

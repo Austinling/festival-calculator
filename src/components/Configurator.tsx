@@ -29,13 +29,6 @@ export function Configurator({
   const [activeTab, setActiveTab] = useState<ConfiguratorTab>("stages");
   const [selectedDay, setSelectedDay] = useState(1);
 
-  useEffect(() => {
-    if (!config) return;
-    if (selectedDay > config.festival.durationDays) {
-      setSelectedDay(config.festival.durationDays);
-    }
-  }, [config, selectedDay]);
-
   const ticketPriceByDay = useMemo(() => {
     if (!config) return [];
 
@@ -82,7 +75,10 @@ export function Configurator({
     }
   }, [config, modifiers, onModifiersChange, ticketPriceByDay, weatherByDay]);
 
-  const selectedDayIndex = selectedDay - 1;
+  const selectedDayForDisplay = config
+    ? Math.min(selectedDay, config.festival.durationDays)
+    : selectedDay;
+  const selectedDayIndex = selectedDayForDisplay - 1;
   const selectedDayTicketPrice = ticketPriceByDay[selectedDayIndex] ?? 50;
   const selectedDayWeather = weatherByDay[selectedDayIndex] ?? "sunny";
 
@@ -103,7 +99,7 @@ export function Configurator({
       totalEventOpex: results.totalOPEX,
       projectedAttendance: results.projectedAttendance,
       selectedDayAttendance,
-      selectedDay,
+      selectedDay: selectedDayForDisplay,
       budgetRemaining:
         config.festival.budget - results.totalCAPEX - results.totalOPEX,
       electricityCost: results.electricityCost, // Make sure this is exported from Simulation
@@ -131,7 +127,13 @@ export function Configurator({
         },
       },
     };
-  }, [config, modifiers, selectedDay, selectedDayIndex, experienceLevel]);
+  }, [
+    config,
+    modifiers,
+    selectedDayForDisplay,
+    selectedDayIndex,
+    experienceLevel,
+  ]);
 
   if (!config) {
     return <div className="p-6">Loading festival...</div>;
@@ -334,7 +336,8 @@ export function Configurator({
               <option value="extreme">Extreme</option>
             </select>
             <div className="mt-2 text-xs text-slate-600">
-              Forecast for Day {selectedDay}; used in day-specific attendance.
+              Forecast for Day {selectedDayForDisplay}; used in day-specific
+              attendance.
             </div>
           </div>
 
@@ -343,7 +346,7 @@ export function Configurator({
               Day Selector
             </label>
             <select
-              value={selectedDay}
+              value={selectedDayForDisplay}
               onChange={(event) => setSelectedDay(Number(event.target.value))}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900"
             >
@@ -357,7 +360,7 @@ export function Configurator({
               )}
             </select>
             <div className="mt-2 text-xs text-slate-600">
-              Editing turnout and ticket price for Day {selectedDay}
+              Editing turnout and ticket price for Day {selectedDayForDisplay}
             </div>
           </div>
         </div>

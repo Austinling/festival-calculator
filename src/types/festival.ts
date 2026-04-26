@@ -55,14 +55,19 @@ export interface SponsorDeal {
 export interface Toilet {
   id: string;
   quantity: number;
-  type: "standard" | "disabled";
+  type: "standard" | "disabled" | "accessible";
   maintenanceCostPerWeek: number;
 }
 
 export interface SecurityStaff {
   id: string;
   quantity: number;
-  role: "general-officer" | "door-supervisor" | "traffic-management";
+  role:
+    | "general-officer"
+    | "door-supervisor"
+    | "traffic-management"
+    | "perimeter"
+    | "crowd-control";
   costPerHour: number;
   hoursPerDay: number;
 }
@@ -80,7 +85,7 @@ export interface MedicalStaffResource {
 export interface Amenity {
   id: string;
   name: string;
-  type: "parking" | "wifi";
+  type: "parking" | "wifi" | "medical";
   setupCost: number;
   maintenanceCostPerDay: number;
 }

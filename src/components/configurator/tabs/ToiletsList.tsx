@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FestivalConfig } from "../../../types/festival";
+import type { FestivalConfig, Toilet } from "../../../types/festival";
 import { EntitySection } from "../shared/EntitySection";
 
 interface ToiletsListProps {
@@ -31,7 +31,11 @@ const TOILET_PRESETS = [
 export function ToiletsList({ config, onConfigChange }: ToiletsListProps) {
   const [showForm, setShowForm] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState("custom");
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    quantity: number;
+    type: Toilet["type"];
+    maintenanceCostPerWeek: number;
+  }>({
     quantity: 10,
     type: "standard" as const,
     maintenanceCostPerWeek: 30,
@@ -134,7 +138,7 @@ export function ToiletsList({ config, onConfigChange }: ToiletsListProps) {
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  type: e.target.value as any,
+                  type: e.target.value as Toilet["type"],
                   maintenanceCostPerWeek:
                     e.target.value === "disabled" ? 50 : 30,
                 })

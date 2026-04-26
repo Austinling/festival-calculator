@@ -41,7 +41,6 @@ const ADVERSE_WEATHER_WASTE_CLEANUP_MULTIPLIER = 2;
 const WASTE_CLEANUP_COST_PER_ATTENDEE = 2;
 const STAFF_FATIGUE_THRESHOLD_DAYS = 5;
 const STAFF_FATIGUE_PREMIUM_MULTIPLIER = 1.2;
-const ELECTRICITY_BASE_LOAD_MULTIPLIER = 0.05;
 
 function getEventSizeTier(stageCount: number): EventSizeTier {
   if (stageCount > 5) return "large";
@@ -229,7 +228,7 @@ function calculateOPEX(
   daysOfEvent: number,
   experienceLevel: ExperienceLevel,
   marketingBudget: number,
-): { totalOpex: number; electricityCost: number } {
+): { totalOpex: number; electricityCost: number; totalKWh: number } {
   let opex = 0;
   let electricityCostTotal = 0;
   let totalKWhUsed = 0;
@@ -300,7 +299,6 @@ function calculateOPEX(
   });
 
   // Electricity costs for stages (24 hours per day at £0.2467/kWh)
-  const hoursPerDay = 24;
   config.stages.forEach((stage) => {
     const { cost, kWh } = calculateElectricityStats(
       stage.powerConsumption,
@@ -496,15 +494,6 @@ export function simulateFestival(
   );
 
   // Energy usage
-  const energyUsage = config.stages.reduce((sum, stage) => {
-    const showHours = 12; // Stages aren't full blast 24/7
-    const standbyHours = 12;
-    const dailyKwh =
-      stage.powerConsumption * showHours +
-      stage.powerConsumption * 0.1 * standbyHours;
-    return sum + dailyKwh * daysOfEvent;
-  }, 0);
-
   // Waste
   const wasteGenerated = (attendance * 2) / 1000; // 2kg per person -> tonnes
 

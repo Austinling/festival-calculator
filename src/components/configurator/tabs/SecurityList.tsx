@@ -1,11 +1,16 @@
 import { useState } from "react";
-import type { FestivalConfig } from "../../../types/festival";
+import type { FestivalConfig, SecurityStaff } from "../../../types/festival";
 import { EntitySection } from "../shared/EntitySection";
 
 interface SecurityListProps {
   config: FestivalConfig;
   onConfigChange: (config: FestivalConfig) => void;
 }
+
+type SecurityFormRole = Extract<
+  SecurityStaff["role"],
+  "general-officer" | "door-supervisor" | "traffic-management"
+>;
 
 const SECURITY_PRESETS = [
   {
@@ -45,7 +50,7 @@ export function SecurityList({ config, onConfigChange }: SecurityListProps) {
   const [selectedPreset, setSelectedPreset] = useState("custom");
   const [formData, setFormData] = useState<{
     quantity: number;
-    role: "general-officer" | "door-supervisor" | "traffic-management";
+    role: SecurityFormRole;
     costPerHour: number;
     hoursPerDay: number;
   }>({
@@ -154,13 +159,14 @@ export function SecurityList({ config, onConfigChange }: SecurityListProps) {
             </p>
             <select
               value={formData.role}
-              onChange={(e) =>
+              onChange={(e) => {
+                const newRole = e.target.value as SecurityFormRole;
                 setFormData({
                   ...formData,
-                  role: e.target.value as any,
-                  costPerHour: e.target.value === "door-supervisor" ? 20 : 15,
-                })
-              }
+                  role: newRole,
+                  costPerHour: newRole === "door-supervisor" ? 20 : 15,
+                });
+              }}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             >
               <option value="general-officer">

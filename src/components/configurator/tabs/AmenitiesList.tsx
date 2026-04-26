@@ -166,7 +166,8 @@ export function AmenitiesList({ config, onConfigChange }: AmenitiesListProps) {
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  type: e.target.value as any,
+                  type: e.target
+                    .value as FestivalConfig["amenities"][number]["type"],
                   setupCost:
                     e.target.value === "parking"
                       ? 500

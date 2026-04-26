@@ -55,6 +55,12 @@ npm run preview
 npm run lint
 ```
 
+## Testing
+
+```bash
+npx jest
+```
+
 ## What gets saved locally
 
 The app stores data in your browser:

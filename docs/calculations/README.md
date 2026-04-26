@@ -23,22 +23,25 @@ Current live CAPEX is:
 
 ### Projected attendance
 
-The live turnout estimate is based on:
+The live turnout estimate shown in the sidebar is driven by `simulateFestival()` and uses the current simulator output for the selected day.
+
+At the simulator level, projected attendance is based on:
 
 - festival capacity
-- average artist draw factor
-- how many artists you booked relative to stages
-- support features like vendors, security, amenities, and toilets
-- support features like vendors, security, parking, WiFi, medical, and toilets
+- the strongest artist draw on each day
+- whether the day has at least one artist assigned
+- reputation multiplier
+- weather multiplier
+- ticket price multiplier using a $60 baseline
 
-In code, the estimate is calculated from a mix of:
+In code, the estimate is calculated as:
 
-- average artist draw
-- stage coverage
-- support boost
-- a base capacity multiplier
+- `attendanceCap = floor(capacity × (1 + marketingCapBoost))`
+- `reputationMultiplier = 0.7 + (eventReputation / 100) × 0.3`
+- `priceMultiplier = clamp((60 / ticketPrice)^1.1, 0.2, 1.5)`
+- `projectedAttendance = min(floor(attendanceCap × reputationMultiplier × weatherMultiplier × topDraw × priceMultiplier), attendanceCap)`
 
-This is no longer a fixed 60% value.
+If a day has no assigned artists, that day contributes 0 attendance.
 
 ### Live OPEX
 
@@ -51,6 +54,8 @@ The configurator estimate includes:
 - WiFi cost auto-calculated by event size if WiFi section is enabled
 - parking variable cost auto-calculated by event size if Parking section is enabled
 - electricity subtotal shown separately and included in OPEX
+- waste cleanup cost (`attendance × £2 per attendee`, increased in rainy/extreme weather)
+- a staff fatigue premium of 20% when the festival lasts more than 5 days
 - a logistics charge only when the festival has actual operational infrastructure
 
 ### Resource recommendations
@@ -77,30 +82,34 @@ The actual simulation uses more detailed formulas.
 `calculateAttendance()` uses:
 
 - festival capacity
-- marketing budget multiplier
+- marketing budget cap boost
 - reputation multiplier
 - weather multiplier
-- artist draw multiplier
+- the strongest artist draw on each day
+- ticket price multiplier based on a $60 baseline
 
 Current factors:
 
-- marketing: `0.4` to `1.0`
+- marketing cap boost: up to `+100%` to the attendance cap
 - reputation: `0.7` to `1.0`
 - weather multipliers:
   - sunny: `1.0`
   - cloudy: `0.95`
   - rainy: `0.75`
   - extreme: `0.5`
+- ticket price multiplier: clamped to `0.2` to `1.5`
+
+The final projected attendance is the average daily attendance across the festival days.
 
 ### Revenue
 
 Revenue is:
 
-- ticket revenue = `attendance × ticketPrice`
-- vendor commission = attendance-based vendor spend × vendor commission rate
+- ticket revenue = `sum(attendanceByDay × ticketPriceByDay)`
+- vendor commission = attendance-based vendor spend × vendor commission rate, adjusted for adverse weather on rainy and extreme days
 - sponsor profit = direct sponsorship tier profit entries
 
-Current ticket price: `$50`.
+Current baseline ticket price: `$60`.
 
 ### Artist set model
 
@@ -120,6 +129,8 @@ Simulation OPEX includes:
 - **electricity costs for all stages** (calculated based on tier)
 - **WiFi cost by event size tier** (if WiFi is enabled)
 - **Parking variable daily cost by event size tier** (if Parking is enabled)
+- waste cleanup cost of £2 per attendee, doubled in adverse weather
+- a 20% fatigue premium on staff costs when duration exceeds 5 days
 - logistics charge only when there are actual vendors, toilets, security, or amenities
 
 The logistics charge is currently:
@@ -262,8 +273,11 @@ The simulation also calculates:
 
 - toilet wait time from attendance-to-toilet ratio
 - crowd satisfaction from waits, staffing, and vendor capacity
+- a crowding penalty when peak-day attendance exceeds total stage capacity
 - security incidents from satisfaction and staffing
 - safety rating from incidents, staffing, and amenities
+
+The Greedy Manager trade-off is intentional: if peak-day attendance exceeds total stage capacity, the model applies an aggressive crowding penalty of `min(50, ceil((ratio - 1) × 100))`, where `ratio = peakDayAttendance / totalStageCapacity`. This reduces both crowd satisfaction and safety rating, so higher revenue from overbooking is offset by stronger operational risk.
 
 ### Grade
 

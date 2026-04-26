@@ -4,6 +4,16 @@
 
 A local-only React + TypeScript + Vite app for designing, simulating, saving, and reviewing festival setups. It runs entirely in the browser and uses `localStorage` for persistence.
 
+## Tech stack
+
+- React for the UI
+- TypeScript for application and simulation logic
+- Vite for development and production builds
+- Tailwind CSS for styling utilities
+- Jest with ts-jest for tests
+- ESLint for linting
+- Browser `localStorage` for persistence
+
 ## Requirements
 
 - Node.js installed

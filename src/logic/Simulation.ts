@@ -433,8 +433,8 @@ export function simulateFestival(
   );
   const overCapacityRatio = peakDayAttendance / Math.max(1, totalStageCapacity);
   const crowdingPenaltyPoints =
-    overCapacityRatio > 1.2
-      ? Math.min(25, Math.ceil((overCapacityRatio - 1.2) * 40))
+    overCapacityRatio > 1.0
+      ? Math.min(50, Math.ceil((overCapacityRatio - 1.0) * 100)) // More aggressive penalty
       : 0;
 
   // Step 2: Crowd Experience
@@ -487,6 +487,7 @@ export function simulateFestival(
     experienceLevel,
     modifiers.marketingBudget,
   );
+
   const capex = calculateCAPEX(config);
 
   const netProfit = totalRevenue - totalOpex - capex;
@@ -536,7 +537,7 @@ export function simulateFestival(
     totalCAPEX: capex,
     netProfit: Math.round(netProfit),
     breakEvenPoint: breakEvenDay,
-    energyUsage: Math.round(energyUsage),
+    energyUsage: energyUsageResult,
     wasteGenerated: Math.round(wasteGenerated * 100) / 100,
     staffRequiredPerDay: staffRequired,
     grade,
